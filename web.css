@@ -157,7 +157,7 @@ nav.menu{gap:22px;white-space:nowrap}
 .conoce-parque{background:var(--mostaza-claro)}
 
 /* Pie */
-.zona-pie{width:100%;margin:0;font-size:.82rem;opacity:.55;line-height:1.5}
+.zona-pie{width:100%;margin:0;font-size:.82rem;opacity:.8;line-height:1.5}
 .credito{width:100%;margin:-12px 0 0;font-size:.82rem;opacity:.65}
 .credito a{text-decoration:none}
 .credito b{font-weight:700}
