@@ -2,7 +2,9 @@
 (() => {
 const T = window.T;
 const WHATSAPP = "34681818093";
-const waLink = msg => `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(msg)}`;
+// Al final de cada mensaje va la página desde la que se escribe, para saber qué páginas traen consultas
+const ORIGEN = `\n\n(${location.hostname.replace(/^www\./, "")}${location.pathname})`;
+const waLink = msg => `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(msg + ORIGEN)}`;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 
