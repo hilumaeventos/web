@@ -116,6 +116,8 @@ nav.menu{gap:22px;white-space:nowrap}
 .franja[aria-pressed="true"] small::before{outline:1.5px solid var(--fondo)}
 .franja:disabled{background:rgba(251,247,240,.55);color:#6B5A4A;cursor:not-allowed}
 .franja:disabled span{text-decoration:line-through}
+.franja.pendiente:disabled{background:var(--crema);color:var(--tinta-fuerte)}
+.franja.pendiente:disabled span{text-decoration:none}
 .franja[aria-pressed="true"]{background:var(--tinta-fuerte);color:var(--fondo)}
 .panel-reserva form{display:grid;gap:14px;margin-top:18px}
 .panel-reserva label{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:.95rem;color:#2F241B}
