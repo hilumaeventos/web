@@ -159,7 +159,8 @@ async function pintarMes() {
     const estados = FRANJAS.map(f => estado(k, f.id));
     b.innerHTML = `<span>${n}</span>` + (fuera || !r.dias ? "" : `<span class="puntos">${estados.map(e => `<i class="${e === false ? "ocupada" : e === null ? "duda" : ""}"></i>`).join("")}</span>`);
     if (fuera) b.disabled = true;
-    else if (r.dias && estados.every(e => e === false)) { b.classList.add("lleno"); b.disabled = true; b.setAttribute("aria-label", `${n}: ${T.cal.completo}`); }
+    // Solo se puede elegir lo libre (verde): un día sin ninguna franja libre no se puede tocar.
+    else if (r.dias && estados.every(e => e !== true)) { b.classList.add("lleno"); b.disabled = true; b.setAttribute("aria-label", `${n}: ${T.cal.completo}`); }
     dias.append(b);
   }
 }
@@ -173,7 +174,7 @@ function pintarFranjas() {
     const e = estado(diaSel, f.id), b = document.createElement("button");
     b.type = "button"; b.className = "franja"; b.dataset.franja = f.id;
     b.innerHTML = `<span>${f.nombre} · ${f.horas}</span><small class="${e === false ? "e-ocupada" : e === null ? "e-duda" : "e-libre"}">${e === false ? T.cal.ocupada : e === null ? T.cal.aConfirmar : T.cal.libre}</small>`;
-    b.disabled = e === false;
+    b.disabled = e !== true; // Solo las franjas libres (verde); las «pendiente de confirmar» y ocupadas no se eligen.
     b.setAttribute("aria-pressed", f.id === franjaSel ? "true" : "false");
     caja.append(b);
   });
