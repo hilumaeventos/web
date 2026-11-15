@@ -190,7 +190,8 @@ $("#calDias").addEventListener("click", e => {
   if (matchMedia("(max-width:900px)").matches) $("#panelReserva").scrollIntoView({ behavior: "smooth", block: "start" });
 });
 $("#franjasElegir").addEventListener("click", e => {
-  const b = e.target.closest(".franja"); if (!b || b.disabled) return;
+  // Solo las franjas libres (verde): aunque el botón no estuviera bloqueado, una amarilla o roja no se elige.
+  const b = e.target.closest(".franja"); if (!b || b.disabled || estado(diaSel, b.dataset.franja) !== true) return;
   franjaSel = b.dataset.franja;
   $$(".franja").forEach(x => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
   actualizarBoton();
