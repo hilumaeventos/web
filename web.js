@@ -11,6 +11,20 @@ const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 // Enlaces de WhatsApp con mensaje fijo
 $$(".js-wa").forEach(a => { a.href = waLink(a.dataset.msg || T.wa.hola); a.target = "_blank"; a.rel = "noopener"; });
 
+// Barra con borde al bajar
+const barra = $("#barra");
+if (barra) { const b = () => barra.classList.toggle("scrolled", scrollY > 8); addEventListener("scroll", b, { passive: true }); b(); }
+
+// Manchas de la portada: se mueven un poco con el ratón (solo ordenador y sin «reducir movimiento»)
+const escena = $("#escena");
+if (escena && !matchMedia("(prefers-reduced-motion: reduce)").matches && matchMedia("(hover:hover) and (pointer:fine)").matches) {
+  const sv = $(".escena-manchas svg", escena);
+  escena.addEventListener("pointermove", e => {
+    const r = escena.getBoundingClientRect(), x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
+    sv.style.setProperty("--mx", (x * -22).toFixed(1) + "px"); sv.style.setProperty("--my", (y * -16).toFixed(1) + "px"); sv.style.setProperty("--rot", (x * 4).toFixed(2) + "deg");
+  });
+}
+
 // Menú móvil
 const menuBtn = $("#menuBtn"), menuNav = $("#menuNav");
 if (menuBtn) menuBtn.addEventListener("click", () => menuBtn.setAttribute("aria-expanded", menuNav.classList.toggle("abierto")));
@@ -64,14 +78,9 @@ const lineaExtras = grupo => {
 };
 const lineaNota = campo => campo && campo.value.trim() ? `\n• ${campo.value.trim()}` : "";
 
-// Página de personajes: fiesta en Hiluma o alquiler para llevar
+// Página de personajes: se usan solo en el local (los trajes no salen de Hiluma), como extra aparte
 const formPersonajes = $("#formPersonajes");
 if (formPersonajes) {
-  let modo = "hiluma";
-  $$(".modo button").forEach(b => b.addEventListener("click", () => {
-    modo = b.dataset.modo;
-    $$(".modo button").forEach(x => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
-  }));
   const fecha = $("#fechaPersonajes");
   const hoy = new Date(); hoy.setDate(hoy.getDate() + 1);
   fecha.min = hoy.toISOString().slice(0, 10);
@@ -80,7 +89,7 @@ if (formPersonajes) {
     const grupo = $("#personajesGaleria");
     if (!elegidos(grupo).length) { $("#avisoPersonajes").textContent = T.personajes.elige; return; }
     $("#avisoPersonajes").textContent = "";
-    let msg = modo === "hiluma" ? T.wa.personajesHiluma : T.wa.personajesLlevar;
+    let msg = T.wa.personajesHiluma;
     msg += lineaExtras(grupo).replace(T.wa.extras, T.wa.personajes);
     if (fecha.value) msg += `\n• ${new Date(fecha.value + "T12:00").toLocaleDateString(T.locale, { weekday: "long", day: "numeric", month: "long" })}`;
     msg += lineaNota($("#notaPersonajes"));
@@ -88,9 +97,7 @@ if (formPersonajes) {
   });
 }
 
-// Calendario de disponibilidad
-const cal = $("#calendario");
-if (!cal) return;
+// Disponibilidad (calendario de reservas y «Próximas franjas libres» de la portada)
 const FRANJAS = [
   { id: "manana", nombre: T.franjas.manana, horas: "10:00 – 14:00" },
   { id: "tarde", nombre: T.franjas.tarde, horas: "16:00 – 20:00" },
@@ -106,6 +113,7 @@ const limite = new Date(manana); limite.setFullYear(limite.getFullYear() + 1);
 let mes = new Date(manana.getFullYear(), manana.getMonth(), 1);
 let diaSel = null, franjaSel = null, datos = {}, ejemplo = false;
 const cache = {};
+const claveMes = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 
 // Datos inventados y estables por fecha, solo para ver el calendario en local sin conexión con Calendar
 const ejemploMes = clave => {
@@ -117,8 +125,9 @@ const ejemploMes = clave => {
   return dias;
 };
 
-async function cargar(clave) {
-  if (cache[clave]) return cache[clave];
+// conEjemplo: en local, si no hay conexión con Calendar, el calendario enseña datos de ejemplo (la portada no)
+async function cargar(clave, conEjemplo = true) {
+  if (cache[clave] && (conEjemplo || !cache[clave].ejemplo)) return cache[clave];
   try {
     const r = await fetch(`${API}?mes=${clave}`, { headers: { accept: "application/json" } });
     if (!r.ok) throw new Error(r.status);
@@ -126,16 +135,45 @@ async function cargar(clave) {
     if (!j || !j.dias) throw new Error("sin datos");
     return (cache[clave] = { dias: j.dias, ejemplo: false });
   } catch {
-    if (local) return (cache[clave] = { dias: ejemploMes(clave), ejemplo: true });
+    if (local && conEjemplo) return (cache[clave] = { dias: ejemploMes(clave), ejemplo: true });
     return { dias: null, ejemplo: false };
   }
 }
 
 // true = libre, false = ocupada, null = sin dato (se confirma por WhatsApp)
-const estado = (k, f) => { const d = datos && datos[k]; return d && typeof d[f] === "boolean" ? d[f] : null; };
+const estadoEn = (dias, k, f) => { const d = dias && dias[k]; return d && typeof d[f] === "boolean" ? d[f] : null; };
+const estado = (k, f) => estadoEn(datos, k, f);
+
+// Portada: las 3 próximas fechas con alguna franja libre (solo datos reales; enlazan al calendario con el día ya elegido)
+const proximas = $("#proximas");
+if (proximas) (async () => {
+  const meses = [new Date(manana.getFullYear(), manana.getMonth(), 1), new Date(manana.getFullYear(), manana.getMonth() + 1, 1)];
+  const fin = new Date(manana.getFullYear(), manana.getMonth() + 2, 1);
+  const r = await Promise.all(meses.map(m => cargar(claveMes(m), false)));
+  const nota = $("#proximasNota"), reservas = $("#libres").dataset.reservas;
+  if (r.every(x => !x.dias)) { proximas.replaceChildren(); nota.textContent = T.libres.error; return; }
+  const libres = [];
+  for (const f = new Date(manana); libres.length < 3 && f < fin; f.setDate(f.getDate() + 1)) {
+    const d = r[claveMes(f) === claveMes(meses[0]) ? 0 : 1].dias;
+    if (!d) continue;
+    const fr = FRANJAS.filter(x => estadoEn(d, iso(f), x.id) === true);
+    if (fr.length) libres.push([new Date(f), fr.length === 3 ? T.libres.todo : fr.map(x => x.nombre).join(" · ")]);
+  }
+  if (!libres.length) { proximas.replaceChildren(); nota.textContent = T.libres.lleno; return; }
+  proximas.replaceChildren(...libres.map(([f, nom]) => {
+    const li = document.createElement("li"), a = document.createElement("a");
+    a.href = `${reservas}?fecha=${iso(f)}`;
+    const t = f.toLocaleDateString(T.locale, { weekday: "short", day: "numeric", month: "short" });
+    a.innerHTML = `<span>${t.charAt(0).toUpperCase() + t.slice(1)}</span><small>${nom}</small>`;
+    li.append(a); return li;
+  }));
+})();
+
+const cal = $("#calendario");
+if (!cal) return;
 
 async function pintarMes() {
-  const clave = `${mes.getFullYear()}-${String(mes.getMonth() + 1).padStart(2, "0")}`;
+  const clave = claveMes(mes);
   const titulo = mes.toLocaleDateString(T.locale, { month: "long", year: "numeric" });
   $("#calMes").textContent = titulo.charAt(0).toUpperCase() + titulo.slice(1);
   $("#calAntes").disabled = mes <= new Date(manana.getFullYear(), manana.getMonth(), 1);
@@ -214,5 +252,11 @@ $("#formReserva").addEventListener("submit", e => {
 const pTipo = new URLSearchParams(location.search).get("tipo");
 if (pTipo) { const o = [...$("#tipo").options].find(o => o.dataset.clave === pTipo); if (o) o.selected = true; }
 
-pintarMes(); pintarFranjas(); actualizarBoton();
+// Si llegan desde «Próximas franjas libres» con ?fecha=AAAA-MM-DD, se abre ese día ya elegido
+const pFecha = new URLSearchParams(location.search).get("fecha");
+if (pFecha && /^\d{4}-\d{2}-\d{2}$/.test(pFecha)) {
+  const f = new Date(pFecha + "T12:00");
+  if (f >= manana && f <= limite) { diaSel = pFecha; mes = new Date(f.getFullYear(), f.getMonth(), 1); }
+}
+pintarMes().then(pintarFranjas); pintarFranjas(); actualizarBoton();
 })();
