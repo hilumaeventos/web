@@ -98,12 +98,15 @@ if (formPersonajes) {
 }
 
 // Disponibilidad (calendario de reservas y «Próximas franjas libres» de la portada)
-const FRANJAS = [
+// Las tres franjas del día (puntos del calendario y «Próximas franjas libres») y, para elegir, también el día completo
+const BASE = [
   { id: "manana", nombre: T.franjas.manana, horas: "10:00 – 14:00" },
   { id: "tarde", nombre: T.franjas.tarde, horas: "16:00 – 20:00" },
   { id: "noche", nombre: T.franjas.noche, horas: "20:30 – 23:30" },
 ];
-const local = ["localhost", "127.0.0.1"].includes(location.hostname);
+const FRANJAS = [...BASE, { id: "dia", nombre: T.franjas.dia, horas: "10:00 – 23:30" }];
+// También cuenta como vista previa local abrirla desde el móvil en la red de casa (HILUMA_MOVIL=1)
+const local = ["localhost", "127.0.0.1"].includes(location.hostname) || /^(10|172\.(1[6-9]|2\d|3[01])|192\.168)\./.test(location.hostname);
 // En la web publicada se pregunta directamente al flujo de n8n (admite peticiones desde hilumaeventos.com);
 // en la vista previa local pasa por servir.py
 const API = local ? "/api/disponibilidad" : "https://app.kaelorsyrona.com/webhook/hiluma-disponibilidad";
@@ -141,7 +144,17 @@ async function cargar(clave, conEjemplo = true) {
 }
 
 // true = libre, false = ocupada, null = sin dato (se confirma por WhatsApp)
-const estadoEn = (dias, k, f) => { const d = dias && dias[k]; return d && typeof d[f] === "boolean" ? d[f] : null; };
+const estadoEn = (dias, k, f) => {
+  const d = dias && dias[k];
+  if (f === "dia") {
+    // Día completo: libre solo si las tres franjas están libres; ocupado si alguna está ocupada
+    // (si el calendario ya dice que el día completo está ocupado, también cuenta)
+    const e = BASE.map(x => estadoEn(dias, k, x.id));
+    if (d && d.dia_completo === false) return false;
+    return e.every(x => x === true) ? true : e.some(x => x === false) ? false : null;
+  }
+  return d && typeof d[f] === "boolean" ? d[f] : null;
+};
 const estado = (k, f) => estadoEn(datos, k, f);
 
 // Portada: las 3 próximas fechas con alguna franja libre (solo datos reales; enlazan al calendario con el día ya elegido)
@@ -156,7 +169,7 @@ if (proximas) (async () => {
   for (const f = new Date(manana); libres.length < 3 && f < fin; f.setDate(f.getDate() + 1)) {
     const d = r[claveMes(f) === claveMes(meses[0]) ? 0 : 1].dias;
     if (!d) continue;
-    const fr = FRANJAS.filter(x => estadoEn(d, iso(f), x.id) === true);
+    const fr = BASE.filter(x => estadoEn(d, iso(f), x.id) === true);
     if (fr.length) libres.push([new Date(f), fr.length === 3 ? T.libres.todo : fr.map(x => x.nombre).join(" · ")]);
   }
   if (!libres.length) { proximas.replaceChildren(); nota.textContent = T.libres.lleno; return; }
@@ -194,7 +207,7 @@ async function pintarMes() {
     b.type = "button"; b.className = "dia"; b.dataset.fecha = k;
     b.setAttribute("aria-pressed", k === diaSel ? "true" : "false");
     const fuera = d < manana || d > limite;
-    const estados = FRANJAS.map(f => estado(k, f.id));
+    const estados = BASE.map(f => estado(k, f.id));
     b.innerHTML = `<span>${n}</span>` + (fuera || !r.dias ? "" : `<span class="puntos">${estados.map(e => `<i class="${e === false ? "ocupada" : e === null ? "duda" : ""}"></i>`).join("")}</span>`);
     if (fuera) b.disabled = true;
     // Día tachado solo si todo está ocupado (rojo). Con algo pendiente (amarillo) se abre y se ve normal, sin poder elegirlo.
