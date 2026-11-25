@@ -109,7 +109,7 @@ const FRANJAS = [...BASE, { id: "dia", nombre: T.franjas.dia, horas: "10:00 – 
 const local = ["localhost", "127.0.0.1"].includes(location.hostname) || /^(10|172\.(1[6-9]|2\d|3[01])|192\.168)\./.test(location.hostname);
 // En la web publicada se pregunta directamente al flujo de n8n (admite peticiones desde hilumaeventos.com);
 // en la vista previa local pasa por servir.py
-const API = local ? "/api/disponibilidad" : "https://app.kaelorsyrona.com/webhook/hiluma-disponibilidad";
+const API = local ? "/api/disponibilidad" : "https://hooks.kaelorsyrona.com/webhook/hiluma-disponibilidad";
 const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const manana = new Date(); manana.setHours(0, 0, 0, 0); manana.setDate(manana.getDate() + 1);
 const limite = new Date(manana); limite.setFullYear(limite.getFullYear() + 1);
