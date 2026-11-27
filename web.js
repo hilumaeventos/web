@@ -104,7 +104,7 @@ const BASE = [
   { id: "tarde", nombre: T.franjas.tarde, horas: "16:00 – 20:00" },
   { id: "noche", nombre: T.franjas.noche, horas: "20:30 – 23:30" },
 ];
-const FRANJAS = [...BASE, { id: "dia", nombre: T.franjas.dia, horas: "10:00 – 23:30" }];
+const FRANJAS = [...BASE, { id: "dia", nombre: T.franjas.dia, horas: "10:00 – 20:00" }];
 // También cuenta como vista previa local abrirla desde el móvil en la red de casa (HILUMA_MOVIL=1)
 const local = ["localhost", "127.0.0.1"].includes(location.hostname) || /^(10|172\.(1[6-9]|2\d|3[01])|192\.168)\./.test(location.hostname);
 // En la web publicada se pregunta directamente al flujo de n8n (admite peticiones desde hilumaeventos.com);
@@ -147,10 +147,9 @@ async function cargar(clave, conEjemplo = true) {
 const estadoEn = (dias, k, f) => {
   const d = dias && dias[k];
   if (f === "dia") {
-    // Día completo: libre solo si las tres franjas están libres; ocupado si alguna está ocupada
-    // (si el calendario ya dice que el día completo está ocupado, también cuenta)
-    const e = BASE.map(x => estadoEn(dias, k, x.id));
-    if (d && d.dia_completo === false) return false;
+    // Día completo (10:00 a 20:00): libre solo si mañana y tarde están libres; ocupado si alguna de las dos lo está.
+    // La noche no cuenta: el día completo acaba a las 20:00.
+    const e = ["manana", "tarde"].map(id => estadoEn(dias, k, id));
     return e.every(x => x === true) ? true : e.some(x => x === false) ? false : null;
   }
   return d && typeof d[f] === "boolean" ? d[f] : null;
